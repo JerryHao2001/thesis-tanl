@@ -1,4 +1,24 @@
-torch~=1.7.1
-transformers~=4.0.0
-networkx>=2.5
-scipy
+# Core ML/DL Framework
+torch==2.5.1
+transformers==4.57.1
+torchvision==0.20.1
+torchaudio==2.5.1
+
+# Scientific & Numerical Computing
+numpy==2.1.3
+scipy==1.14.1
+scikit-learn==1.6.0
+pandas==2.2.3
+
+# Visualization
+matplotlib==3.10.0
+seaborn==0.13.2
+
+# Data & Graph Processing
+networkx==3.2.1
+
+# NLP & Text Processing
+tqdm==4.67.1
+
+ipykernel
+ipywidgets

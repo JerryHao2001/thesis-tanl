@@ -1,0 +1,55 @@
+{
+"num_episodes": 1,
+"wrong_reconstruction": [
+0.01818181818181818,
+0.0
+],
+"label_error": [
+0.0,
+0.0
+],
+"entity_error": [
+0.11272727272727273,
+0.0
+],
+"format_error": [
+0.0,
+0.0
+],
+"entity_precision": [
+0.6744759556103576,
+0.0
+],
+"entity_recall": [
+0.6744759556103576,
+0.0
+],
+"entity_f1": [
+0.6744759556103576,
+0.0
+],
+"relation_precision": [
+0.30823529411764705,
+0.0
+],
+"relation_recall": [
+0.2879120879120879,
+0.0
+],
+"relation_f1": [
+0.29772727272727273,
+0.0
+],
+"entity_precision_no_type": [
+0.7718865598027127,
+0.0
+],
+"entity_recall_no_type": [
+0.7718865598027127,
+0.0
+],
+"entity_f1_no_type": [
+0.7718865598027127,
+0.0
+]
+}

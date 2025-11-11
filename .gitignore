@@ -1,0 +1,57 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+
+# Python virtual environments
+env/
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Exclude experiments directory (all contents)
+experiments/
+
+# Data and cached model files (project-specific)
+data/**/cached_*.pth
+data/**/cached_*.pt
+data/**/cached_*.safetensors
+data/**/cached_*.bin
+data/**/cached_*
+
+# PyTorch / model weights / checkpoints / tokenizer files
+*.pth
+*.pt
+*.safetensors
+pytorch_model.bin
+pytorch_model-*.bin
+tokenizer*.pth
+tokenizer*.pt
+tokenizer*.safetensors
+*.ckpt
+
+# Generic model/output folders
+checkpoints/
+outputs/
+runs/
+logs/
+
+# Hugging Face / transformers caches
+.cache/
+.huggingface/
+transformers_cache/
+
+# Misc
+*.log
+*.csv
+.pytest_cache/

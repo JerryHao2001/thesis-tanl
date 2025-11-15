@@ -1,8 +1,6 @@
 # Core ML/DL Framework
-torch==2.5.1
 transformers==4.57.1
-torchvision==0.20.1
-torchaudio==2.5.1
+accelerate==1.11.0
 
 # Scientific & Numerical Computing
 numpy==2.1.3

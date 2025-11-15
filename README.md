@@ -14,13 +14,17 @@ If you use this code, please cite the paper using the bibtex reference below.
 
 
 ## Requirements
+mkdir -p "$HOME/.local/bin"
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$HOME/.local/bin" INSTALLER_NO_MODIFY_PATH=1 sh
+export PATH="$HOME/.local/bin:$PATH"
 
-- Python 3.6+
-- PyTorch (tested with version 1.7.1)
-- Transformers (tested with version 4.0.0)
-- NetworkX (tested with version 2.5, only used in coreference resolution)
+uv venv --python 3.12
 
-You can install all required Python packages with `pip install -r requirements.txt`
+source .venv/bin/activate
+
+uv pip install --index-url https://download.pytorch.org/whl/cu126 torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0
+
+uv pip install -r requirements.txt
 
 
 ## Datasets

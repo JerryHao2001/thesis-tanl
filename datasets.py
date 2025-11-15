@@ -2487,45 +2487,139 @@ class SciERCJointERDataset(JointERDataset):
         'Compare': 'compare',
         'Conjunction': 'conjunction',
     }
+    # natural strings used by the output format
+    _SYMMETRIC = {'compare', 'conjunction'}
 
-    # def load_data_single_split(self, split: str, seed: int = None):
-    #     import json, os
-    #     examples = []
-    #     path = os.path.join(self.data_dir(), f'{split}.json')
-    #     with open(path, 'r') as f:
-    #         for doc_i, line in enumerate(f):
-    #             doc = json.loads(line)
-    #             # one example per sentence (as in ACE)
-    #             for sent_i, tokens in enumerate(doc['sentences']):
-    #                 ner = doc['ner'][sent_i]
-    #                 rels = doc['relations'][sent_i]
-    #                 # Entities: SciERC uses inclusive end; TANL expects [start, end) → +1
-    #                 entities = [
-    #                     Entity(type=self.entity_types[etype], start=s, end=e+1)
-    #                     for s, e, etype in ner
-    #                 ]
-    #                 # Map relations by matching head/tail spans among entities
-    #                 def pick(start, end): 
-    #                     for ent in entities:
-    #                         if ent.start == start and ent.end == end+1: 
-    #                             return ent
-    #                     return None
-    #                 relations = []
-    #                 skip_sentence = False
-    #                 for s1,e1,s2,e2,rtype in rels:
-    #                     h, t = pick(s1,e1), pick(s2,e2)
-    #                     if (h is None) or (t is None):
-    #                         skip_sentence = True; break  # follows ACE guard against dup/ambiguous spans
-    #                     relations.append(Relation(type=self.relation_types[rtype], head=h, tail=t))
-    #                 if skip_sentence: 
-    #                     continue
-    #                 examples.append(InputExample(
-    #                     id=f'{split}-{doc_i}-{sent_i}',
-    #                     tokens=tokens,
-    #                     entities=entities,
-    #                     relations=relations,
-    #                 ))
-    #     return examples
+    @staticmethod
+    def _start_end(ent_tuple):
+        """
+        ent_tuple is typically ('entity_type_natural', start, end).
+        Return (start, end) for ordering.
+        """
+        return ent_tuple[-2], ent_tuple[-1]
+
+    def _normalize_rel(self, rel_tuple):
+        """
+        rel_tuple is (rel_type_natural, head_ent_tuple, tail_ent_tuple).
+        For symmetric types, return a canonical (sorted) orientation.
+        """
+        rtype, h, t = rel_tuple
+        if rtype in self._SYMMETRIC:
+            hs = self._start_end(h)
+            ts = self._start_end(t)
+            if hs > ts:
+                h, t = t, h
+        return (rtype, h, t)
+
+    def evaluate_example(self, example, output_sentence, model=None, tokenizer=None):
+        # --- run inference as usual
+        res = self.output_format.run_inference(
+            example,
+            output_sentence,
+            entity_types=self.entity_types,
+            relation_types=self.relation_types,
+        )
+        predicted_entities, predicted_relations = res[:2]
+        if len(res) == 6:
+            wrong_reconstruction, label_error, entity_error, format_error = res[2:]
+        else:
+            wrong_reconstruction = label_error = entity_error = format_error = False
+
+        # entities
+        predicted_entities_no_type = set(e[1:] for e in predicted_entities)
+        gt_entities = set(entity.to_tuple() for entity in example.entities)
+        gt_entities_no_type = set(e[1:] for e in gt_entities)
+        correct_entities = predicted_entities & gt_entities
+        correct_entities_no_type = gt_entities_no_type & predicted_entities_no_type
+
+        # --- relations: normalize direction for symmetric types
+        gt_relations = set(self._normalize_rel(r) for r in (rel.to_tuple() for rel in example.relations))
+        predicted_relations = set(self._normalize_rel(r) for r in predicted_relations)
+        correct_relations = predicted_relations & gt_relations
+
+        # --- rest identical to base method (counters & per-type tallies)
+        from collections import Counter
+        res_ctr = Counter({
+            'num_sentences': 1,
+            'wrong_reconstructions': 1 if wrong_reconstruction else 0,
+            'label_error': 1 if label_error else 0,
+            'entity_error': 1 if entity_error else 0,
+            'format_error': 1 if format_error else 0,
+            'gt_entities': len(gt_entities),
+            'predicted_entities': len(predicted_entities),
+            'correct_entities': len(correct_entities),
+            'gt_entities_no_type': len(gt_entities_no_type),
+            'predicted_entities_no_type': len(predicted_entities_no_type),
+            'correct_entities_no_type': len(correct_entities_no_type),
+            'gt_relations': len(gt_relations),
+            'predicted_relations': len(predicted_relations),
+            'correct_relations': len(correct_relations),
+        })
+
+        if self.entity_types is not None:
+            for ent_t in self.entity_types.values():
+                predicted = set(e for e in predicted_entities if e[0] == ent_t.natural)
+                gt = set(e for e in gt_entities if e[0] == ent_t.natural)
+                correct = predicted & gt
+                res_ctr['predicted_entities', ent_t.natural] = len(predicted)
+                res_ctr['gt_entities', ent_t.natural] = len(gt)
+                res_ctr['correct_entities', ent_t.natural] = len(correct)
+
+        if self.relation_types is not None:
+            for rel_t in self.relation_types.values():
+                predicted = set(r for r in predicted_relations if r[0] == rel_t.natural)
+                gt = set(r for r in gt_relations if r[0] == rel_t.natural)
+                correct = predicted & gt
+                res_ctr['predicted_relations', rel_t.natural] = len(predicted)
+                res_ctr['gt_relations', rel_t.natural] = len(gt)
+                res_ctr['correct_relations', rel_t.natural] = len(correct)
+
+        return res_ctr
+
+
+    def load_data_single_split(self, split: str, seed: int = None):
+        import os, json, logging
+        examples = []
+        name = self.name if self.data_name is None else self.data_name
+        file_path = os.path.join(self.data_dir(), f'{name}_{split}.json')
+
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            logging.info(f"Loaded {len(data)} sentences for split {split} of {self.name}")
+            for i, x in enumerate(data):
+                entities = [Entity(id=j,
+                                type=self.entity_types[y['type']],
+                                start=y['start'],
+                                end=y['end'])
+                            for j, y in enumerate(x['entities'])]
+
+                # canonicalize + dedup relations
+                seen = set()
+                rels = []
+                for y in x['relations']:
+                    rtype = self.relation_types[y['type']]
+                    h = entities[y['head']]
+                    t = entities[y['tail']]
+
+                    if rtype.natural in self._SYMMETRIC:
+                        # sort by (start,end) to fix orientation
+                        if (h.start, h.end) > (t.start, t.end):
+                            h, t = t, h
+
+                    key = (rtype.natural, h.start, h.end, t.start, t.end)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    rels.append(Relation(type=rtype, head=h, tail=t))
+
+                tokens = x['tokens']
+                examples.append(InputExample(
+                    id=f'{split}-{i}',
+                    tokens=tokens,
+                    entities=entities,
+                    relations=rels,
+                ))
+        return examples
 
 @register_dataset
 class SciERCCorefDataset(CoNLL12CorefDataset):
